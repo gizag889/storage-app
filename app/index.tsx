@@ -14,6 +14,22 @@ type ItemWithRelations = {
   locationName: string | null;
   categoryName: string | null;
   memo: string | null;
+  updatedAt: string;
+};
+
+const formatDate = (isoString: string) => {
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const hr = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${y}/${m}/${d} ${hr}:${min}`;
+  } catch {
+    return isoString;
+  }
 };
 
 export default function HomeScreen() {
@@ -29,6 +45,7 @@ export default function HomeScreen() {
       locationName: locations.name,
       categoryName: categories.name,
       memo: items.memo,
+      updatedAt: items.updated_at,
     }).from(items)
       .leftJoin(locations, eq(items.location_id, locations.id))
       .leftJoin(categories, eq(items.category_id, categories.id));
@@ -89,7 +106,14 @@ export default function HomeScreen() {
                 {item.locationName && (
                   <Chip compact style={{ marginRight: 8, marginBottom: 4 }} icon="map-marker">{item.locationName}</Chip>
                 )}
-                {item.memo && <Text variant="bodySmall" numberOfLines={1} style={{ color: 'gray', marginTop: 4 }}>{item.memo}</Text>}
+                {item.memo && (
+                  <Text variant="bodySmall" numberOfLines={1} style={{ color: 'gray', marginRight: 8, marginBottom: 4 }}>
+                    {item.memo}
+                  </Text>
+                )}
+                <Text variant="bodySmall" style={{ color: 'gray', fontSize: 11, marginBottom: 4 }}>
+                  更新: {formatDate(item.updatedAt)}
+                </Text>
               </View>
             )}
             right={() => (

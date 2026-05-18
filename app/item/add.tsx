@@ -5,7 +5,13 @@ import { router } from 'expo-router';
 import { db } from '../../src/db/client';
 import { items, locations, categories } from '../../src/db/schema';
 import { QuantityCounter } from '../../src/components/QuantityCounter';
-import { v4 as uuidv4 } from 'uuid';
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 export default function AddItemScreen() {
   const [name, setName] = useState('');
@@ -38,7 +44,7 @@ export default function AddItemScreen() {
     }
     
     await db.insert(items).values({
-      id: uuidv4(),
+      id: generateUUID(),
       name,
       quantity,
       location_id: locationId,

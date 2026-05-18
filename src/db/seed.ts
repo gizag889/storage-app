@@ -38,6 +38,13 @@ export async function seedDatabase() {
     { id: category3Id, name: '掃除用具' },
   ]);
 
+  const now = new Date();
+  const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
   // モックの「アイテム」データ挿入
   await db.insert(items).values([
     {
@@ -47,7 +54,7 @@ export async function seedDatabase() {
       location_id: location3Id,
       category_id: category1Id,
       memo: '12ロール入り',
-      updated_at: new Date().toISOString(),
+      updated_at: fiveMinAgo,
     },
     {
       id: generateUUID(),
@@ -56,7 +63,7 @@ export async function seedDatabase() {
       location_id: location2Id,
       category_id: category1Id,
       memo: '5箱パック',
-      updated_at: new Date().toISOString(),
+      updated_at: oneHourAgo,
     },
     {
       id: generateUUID(),
@@ -65,7 +72,7 @@ export async function seedDatabase() {
       location_id: location1Id,
       category_id: category2Id,
       memo: '濃口',
-      updated_at: new Date().toISOString(),
+      updated_at: yesterday,
     },
     {
       id: generateUUID(),
@@ -74,7 +81,7 @@ export async function seedDatabase() {
       location_id: location1Id,
       category_id: category3Id,
       memo: '詰め替え用大容量',
-      updated_at: new Date().toISOString(),
+      updated_at: threeDaysAgo,
     },
     {
       id: generateUUID(),
@@ -83,7 +90,7 @@ export async function seedDatabase() {
       location_id: location3Id,
       category_id: category3Id,
       memo: '早めに買う！',
-      updated_at: new Date().toISOString(),
+      updated_at: oneWeekAgo,
     }
   ]);
 }

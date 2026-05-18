@@ -7,12 +7,28 @@ import { items, locations, categories } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { QuantityCounter } from '../../src/components/QuantityCounter';
 
+const formatDate = (isoString: string) => {
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const hr = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${y}/${m}/${d} ${hr}:${min}`;
+  } catch {
+    return isoString;
+  }
+};
+
 export default function EditItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(0);
   const [memo, setMemo] = useState('');
+  const [updatedAt, setUpdatedAt] = useState<string>('');
   
   const [locationId, setLocationId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -38,6 +54,7 @@ export default function EditItemScreen() {
         setMemo(item.memo || '');
         setLocationId(item.location_id);
         setCategoryId(item.category_id);
+        setUpdatedAt(item.updated_at);
       } else {
         Alert.alert('エラー', 'アイテムが見つかりません');
         router.back();
@@ -150,6 +167,12 @@ export default function EditItemScreen() {
           style={styles.input}
         />
         
+        {updatedAt ? (
+          <Text style={styles.updatedAtText}>
+            最終更新日時: {formatDate(updatedAt)}
+          </Text>
+        ) : null}
+        
         <Button mode="contained" onPress={handleSave} style={styles.button}>
           保存する
         </Button>
@@ -165,4 +188,5 @@ const styles = StyleSheet.create({
   dropdownContainer: { marginBottom: 16 },
   counterContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, paddingVertical: 8 },
   button: { marginTop: 16, marginBottom: 40, paddingVertical: 8 },
+  updatedAtText: { color: 'gray', fontSize: 13, marginBottom: 16, textAlign: 'right' },
 });
