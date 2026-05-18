@@ -30,7 +30,8 @@
     "scheme": "my-storage-app",
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},

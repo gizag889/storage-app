@@ -15,6 +15,7 @@ type ItemWithRelations = {
   categoryName: string | null;
   memo: string | null;
   updatedAt: string;
+  alarmAt: string | null;
 };
 
 const formatDate = (isoString: string) => {
@@ -46,6 +47,7 @@ export default function HomeScreen() {
       categoryName: categories.name,
       memo: items.memo,
       updatedAt: items.updated_at,
+      alarmAt: items.alarm_at,
     }).from(items)
       .leftJoin(locations, eq(items.location_id, locations.id))
       .leftJoin(categories, eq(items.category_id, categories.id));
@@ -110,6 +112,11 @@ export default function HomeScreen() {
                   <Text variant="bodySmall" numberOfLines={1} style={{ color: 'gray', marginRight: 8, marginBottom: 4 }}>
                     {item.memo}
                   </Text>
+                )}
+                {item.alarmAt && (
+                  <Chip compact style={{ marginRight: 8, marginBottom: 4, backgroundColor: '#fff3e0' }} icon="bell">
+                    {formatDate(item.alarmAt)}
+                  </Chip>
                 )}
                 <Text variant="bodySmall" style={{ color: 'gray', fontSize: 11, marginBottom: 4 }}>
                   更新: {formatDate(item.updatedAt)}

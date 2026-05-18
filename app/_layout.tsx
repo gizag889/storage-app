@@ -6,6 +6,17 @@ import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { Text, View, ActivityIndicator } from 'react-native';
 import { useEffect, useState } from 'react';
 import { seedDatabase } from '../src/db/seed';
+import * as Notifications from 'expo-notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 const theme = {
   ...MD3LightTheme,
@@ -19,6 +30,21 @@ const theme = {
 export default function RootLayout() {
   const { success, error } = useMigrations(db, migrations);
   const [isSeeded, setIsSeeded] = useState(false);
+
+  useEffect(() => {
+    async function setupNotifications() {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        console.warn('Failed to get push token for push notification!');
+      }
+    }
+    setupNotifications();
+  }, []);
 
   useEffect(() => {
     if (success) {

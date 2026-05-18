@@ -18,4 +18,6 @@ export const items = sqliteTable('items', {
   category_id: text('category_id').references(() => categories.id),
   memo: text('memo'),
   updated_at: text('updated_at').notNull(),
+  alarm_at: text('alarm_at'),
+  notification_id: text('notification_id'),
 });
