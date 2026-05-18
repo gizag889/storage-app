@@ -4,6 +4,8 @@ import { db } from '../src/db/client';
 import migrations from '../drizzle/migrations';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { Text, View, ActivityIndicator } from 'react-native';
+import { useEffect, useState } from 'react';
+import { seedDatabase } from '../src/db/seed';
 
 const theme = {
   ...MD3LightTheme,
@@ -16,6 +18,19 @@ const theme = {
 
 export default function RootLayout() {
   const { success, error } = useMigrations(db, migrations);
+  const [isSeeded, setIsSeeded] = useState(false);
+
+  useEffect(() => {
+    if (success) {
+      seedDatabase()
+        .then(() => setIsSeeded(true))
+        .catch((err) => {
+          console.error('Failed to seed database:', err);
+          // Even if seeding fails, we might want to let the app load, but logging is good.
+          setIsSeeded(true);
+        });
+    }
+  }, [success]);
 
   if (error) {
     return (
@@ -25,7 +40,7 @@ export default function RootLayout() {
     );
   }
 
-  if (!success) {
+  if (!success || !isSeeded) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#3182ce" />
