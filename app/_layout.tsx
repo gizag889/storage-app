@@ -7,6 +7,9 @@ import { Text, View, ActivityIndicator } from 'react-native';
 import { useEffect, useState } from 'react';
 import { seedDatabase } from '../src/db/seed';
 import * as Notifications from 'expo-notifications';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -75,15 +78,17 @@ export default function RootLayout() {
   }
 
   return (
-    <PaperProvider theme={theme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ title: '在庫一覧' }} />
-        <Stack.Screen name="item/add" options={{ title: 'アイテム追加', presentation: 'modal' }} />
-        <Stack.Screen name="item/[id]" options={{ title: 'アイテム詳細' }} />
-        <Stack.Screen name="settings/index" options={{ title: '設定' }} />
-        <Stack.Screen name="settings/locations" options={{ title: '場所管理' }} />
-        <Stack.Screen name="settings/categories" options={{ title: 'カテゴリー管理' }} />
-      </Stack>
-    </PaperProvider>
+    <QueryClientProvider client={queryClient}>
+      <PaperProvider theme={theme}>
+        <Stack>
+          <Stack.Screen name="index" options={{ title: '在庫一覧' }} />
+          <Stack.Screen name="item/add" options={{ title: 'アイテム追加', presentation: 'modal' }} />
+          <Stack.Screen name="item/[id]" options={{ title: 'アイテム詳細' }} />
+          <Stack.Screen name="settings/index" options={{ title: '設定' }} />
+          <Stack.Screen name="settings/locations" options={{ title: '場所管理' }} />
+          <Stack.Screen name="settings/categories" options={{ title: 'カテゴリー管理' }} />
+        </Stack>
+      </PaperProvider>
+    </QueryClientProvider>
   );
 }
