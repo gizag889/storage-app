@@ -31,8 +31,15 @@ const theme = {
 };
 
 export default function RootLayout() {
+  //アプリ起動時にデータベースのテーブル作成・構造変更（マイグレーション）を自動的に実行し、その進捗状況を管理する」**役割
+  //success  マイグレーションがすべて無事に完了すると true になります。実行中は false  データベースの準備（テーブル作成など）ができる前にデータを読み込もうとするとアプリがクラッシュしてしまいます。そのため、この success が true になるまでは、
+//72-78行目で「ローディング中（くるくる）」画面を表示してアプリの起動を待機させています
+  //error マイグレーション処理が失敗した場合にエラー内容が格納される
   const { success, error } = useMigrations(db, migrations);
   const [isSeeded, setIsSeeded] = useState(false);
+
+  //JavaScriptの async 関数は、呼び出されると自動的に Promise オブジェクトを返します。 しかし、React の useEffect は**「クリーンアップ用の関数（または何も返さない undefined）」**が返ってくることを想定しています。Promise が返ってきてしまうと、React がクリーンアップ処理（アンマウント時の処理）を正しく実行できなくなるため、エラーになります。
+  //この制限を避けるために、以下のように「同期関数の内部で非同期関数を定義し、それを即座に実行する」という手順をとっています
 
   useEffect(() => {
     async function setupNotifications() {
