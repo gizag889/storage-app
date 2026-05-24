@@ -77,21 +77,27 @@ export default function HomeScreen() {
         .where(eq(items.id, id));
     },
     onMutate: async ({ id, newQuantity }) => {
+      //楽観的アップデート（Optimistic Updates）**を実現するために、進行中の（またはフェッチ待ちの）クエリをキャンセルする
       await queryClient.cancelQueries({ queryKey: ['items'] });
+      //通信エラーやサーバー処理の失敗時に、UIの表示を元の正しい状態にロールバック（復元）するため、previousItemに保存
       const previousItems = queryClient.getQueryData<ItemWithRelations[]>(['items']);
       
       if (previousItems) {
         queryClient.setQueryData<ItemWithRelations[]>(['items'], old => 
+          //外側の条件分岐:old ? (存在する場合の処理) : [] キャッシュデータ（old）が存在するかどうか
+          //内側の条件分岐:item.id === id ? (変更する) : (そのまま) ループ中のアイテムが**「今回数量を変更した対象のアイテムか」
           old ? old.map(item => item.id === id ? { ...item, quantity: newQuantity } : item) : []
         );
       }
       return { previousItems };
     },
+    //context.previousItems をキャッシュに戻すことで、画面を「変更前の正しい状態」へと自動的に戻す。
     onError: (err, newTodo, context) => {
       if (context?.previousItems) {
         queryClient.setQueryData(['items'], context.previousItems);
       }
     },
+    //更新処理（Mutation）が成功・失敗どちらで終わったとしても、最終的に最新の正しいデータをデータベースから再取得して、UIの状態を完全に同期する
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
     },
