@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
-import { TextInput, Button, Text, Menu, TouchableRipple, IconButton } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, Alert, Platform, ActivityIndicator } from 'react-native';
+import { TextInput, Button, Text, Menu, TouchableRipple, IconButton, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '../../src/db/client';
 import { items, locations, categories } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
@@ -36,6 +37,8 @@ type FormData = {
 
 export default function EditItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const theme = useTheme();
+  const queryClient = useQueryClient();
   
   const { control, handleSubmit, reset, watch } = useForm<FormData>({
     defaultValues: {
@@ -48,97 +51,136 @@ export default function EditItemScreen() {
     }
   });
 
-  const [updatedAt, setUpdatedAt] = useState<string>('');
-  const [notificationId, setNotificationId] = useState<string | null>(null);
-  
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
-  
-  const [locs, setLocs] = useState<{ id: string; name: string }[]>([]);
-  const [cats, setCats] = useState<{ id: string; name: string }[]>([]);
   
   const [locMenuVisible, setLocMenuVisible] = useState(false);
   const [catMenuVisible, setCatMenuVisible] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      const locData = await db.select().from(locations);
-      const catData = await db.select().from(categories);
-      setLocs(locData);
-      setCats(catData);
-      
-      const itemData = await db.select().from(items).where(eq(items.id, id));
-      if (itemData.length > 0) {
-        const item = itemData[0];
-        reset({
-          name: item.name,
-          quantity: item.quantity,
-          memo: item.memo || '',
-          locationId: item.location_id,
-          categoryId: item.category_id,
-          alarmAt: item.alarm_at ? new Date(item.alarm_at) : null,
-        });
-        setUpdatedAt(item.updated_at);
-        setNotificationId(item.notification_id || null);
-      } else {
-        Alert.alert('エラー', 'アイテムが見つかりません');
-        router.back();
-      }
-    };
-    loadData();
-  }, [id, reset]);
+  // --- Queries ---
+  const { data: locs = [] } = useQuery({
+    queryKey: ['locations'],
+    queryFn: async () => await db.select().from(locations),
+  });
 
-  const handleSave = async (data: FormData) => {
+  const { data: cats = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => await db.select().from(categories),
+  });
+
+  const { data: itemData, isPending, isError } = useQuery({
+    queryKey: ['item', id],
+    queryFn: async () => {
+      const result = await db.select().from(items).where(eq(items.id, id));
+      if (result.length === 0) {
+        throw new Error('Item not found');
+      }
+      return result[0];
+    },
+  });
+
+  // Load data into form when itemData is fetched
+  useEffect(() => {
+    if (itemData) {
+      //reset は React Hook Form の useForm から提供される関数
+      reset({
+        name: itemData.name,
+        quantity: itemData.quantity,
+        memo: itemData.memo || '',
+        locationId: itemData.location_id,
+        categoryId: itemData.category_id,
+        alarmAt: itemData.alarm_at ? new Date(itemData.alarm_at) : null,
+      });
+    }
+  }, [itemData, reset]);
+
+  // Handle item not found error
+  useEffect(() => {
+    if (isError) {
+      Alert.alert('エラー', 'アイテムが見つかりません');
+      router.back();
+    }
+  }, [isError]);
+
+  // --- Mutations ---
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      let newNotificationId = itemData?.notification_id || null;
+      
+      // 古い通知があればキャンセル
+      if (itemData?.notification_id) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(itemData.notification_id);
+          newNotificationId = null;
+        } catch (e) {
+          console.error('Failed to cancel old notification', e);
+        }
+      }
+      
+      // 新しいアラームが設定されていればスケジュール登録
+      if (data.alarmAt) {
+        if (data.alarmAt.getTime() <= Date.now()) {
+          throw new Error('アラーム日時は未来の時間を指定してください');
+        }
+        try {
+          newNotificationId = await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'リマインダー',
+              body: `${data.name} のアラーム時間です`,
+              sound: true,
+            },
+            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: data.alarmAt },
+          });
+        } catch (e) {
+          console.error('Failed to schedule notification', e);
+          throw new Error('通知の設定に失敗しました');
+        }
+      }
+      
+      await db.update(items).set({
+        name: data.name,
+        quantity: data.quantity,
+        location_id: data.locationId,
+        category_id: data.categoryId,
+        memo: data.memo,
+        updated_at: new Date().toISOString(),
+        alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
+        notification_id: newNotificationId,
+      }).where(eq(items.id, id));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['item', id] });
+      router.back();
+    },
+    onError: (error: Error) => {
+      Alert.alert('エラー', error.message || '保存に失敗しました');
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (itemData?.notification_id) {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(itemData.notification_id);
+        } catch (e) {
+          console.error('Failed to cancel notification on delete', e);
+        }
+      }
+      await db.delete(items).where(eq(items.id, id));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      router.back();
+    }
+  });
+
+  const handleSave = (data: FormData) => {
     if (!data.name.trim()) {
       Alert.alert('エラー', 'アイテム名を入力してください');
       return;
     }
-    
-    let newNotificationId = notificationId;
-    
-    // 古い通知があればキャンセル
-    if (notificationId) {
-      try {
-        await Notifications.cancelScheduledNotificationAsync(notificationId);
-        newNotificationId = null;
-      } catch (e) {
-        console.error('Failed to cancel old notification', e);
-      }
-    }
-    
-    // 新しいアラームが設定されていればスケジュール登録
-    if (data.alarmAt) {
-      if (data.alarmAt.getTime() <= Date.now()) {
-        Alert.alert('エラー', 'アラーム日時は未来の時間を指定してください');
-        return;
-      }
-      try {
-        newNotificationId = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'リマインダー',
-            body: `${data.name} のアラーム時間です`,
-            sound: true,
-          },
-          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: data.alarmAt },
-        });
-      } catch (e) {
-        console.error('Failed to schedule notification', e);
-        Alert.alert('エラー', '通知の設定に失敗しました');
-      }
-    }
-    
-    await db.update(items).set({
-      name: data.name,
-      quantity: data.quantity,
-      location_id: data.locationId,
-      category_id: data.categoryId,
-      memo: data.memo,
-      updated_at: new Date().toISOString(),
-      alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
-      notification_id: newNotificationId,
-    }).where(eq(items.id, id));
-    
-    router.back();
+    saveMutation.mutate(data);
   };
 
   const handleDelete = () => {
@@ -147,17 +189,7 @@ export default function EditItemScreen() {
       { 
         text: '削除', 
         style: 'destructive',
-        onPress: async () => {
-          if (notificationId) {
-            try {
-              await Notifications.cancelScheduledNotificationAsync(notificationId);
-            } catch (e) {
-              console.error(e);
-            }
-          }
-          await db.delete(items).where(eq(items.id, id));
-          router.back();
-        }
+        onPress: () => deleteMutation.mutate()
       }
     ]);
   };
@@ -169,12 +201,25 @@ export default function EditItemScreen() {
   const selectedLoc = locs.find(l => l.id === locationIdValue)?.name || '選択してください';
   const selectedCat = cats.find(c => c.id === categoryIdValue)?.name || '選択してください';
 
+  if (isPending) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <>
       <Stack.Screen 
         options={{
           headerRight: () => (
-            <IconButton icon="delete" iconColor="red" onPress={handleDelete} />
+            <IconButton 
+              icon="delete" 
+              iconColor="red" 
+              onPress={handleDelete} 
+              disabled={deleteMutation.isPending}
+            />
           )
         }} 
       />
@@ -319,13 +364,19 @@ export default function EditItemScreen() {
           )}
         />
         
-        {updatedAt ? (
+        {itemData?.updated_at ? (
           <Text style={styles.updatedAtText}>
-            最終更新日時: {formatDate(updatedAt)}
+            最終更新日時: {formatDate(itemData.updated_at)}
           </Text>
         ) : null}
         
-        <Button mode="contained" onPress={handleSubmit(handleSave)} style={styles.button}>
+        <Button 
+          mode="contained" 
+          onPress={handleSubmit(handleSave)} 
+          style={styles.button}
+          loading={saveMutation.isPending}
+          disabled={saveMutation.isPending}
+        >
           保存する
         </Button>
       </ScrollView>
@@ -335,6 +386,7 @@ export default function EditItemScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
   input: { marginBottom: 16 },
   label: { marginBottom: 8 },
   dropdownContainer: { marginBottom: 16 },
