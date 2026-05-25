@@ -16,6 +16,7 @@
     "babel-plugin-inline-import": "^3.0.0",
     "drizzle-orm": "^0.45.2",
     "expo": "~55.0.24",
+    "expo-camera": "~55.0.19",
     "expo-constants": "^55.0.16",
     "expo-crypto": "^55.0.15",
     "expo-dev-client": "~55.0.34",

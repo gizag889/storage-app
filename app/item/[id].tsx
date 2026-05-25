@@ -10,6 +10,7 @@ import { QuantityCounter } from '../../src/components/QuantityCounter';
 import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useForm, Controller } from 'react-hook-form';
+import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
 
 const formatDate = (isoString: string) => {
   try {
@@ -33,6 +34,7 @@ type FormData = {
   locationId: string | null;
   categoryId: string | null;
   alarmAt: Date | null;
+  barcode: string | null;
 };
 
 export default function EditItemScreen() {
@@ -40,7 +42,7 @@ export default function EditItemScreen() {
   const theme = useTheme();
   const queryClient = useQueryClient();
   
-  const { control, handleSubmit, reset, watch } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, setValue } = useForm<FormData>({
     defaultValues: {
       name: '',
       quantity: 0,
@@ -48,8 +50,11 @@ export default function EditItemScreen() {
       locationId: null,
       categoryId: null,
       alarmAt: null,
+      barcode: null,
     }
   });
+
+  const [scannerVisible, setScannerVisible] = useState(false);
 
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
@@ -90,6 +95,7 @@ export default function EditItemScreen() {
         locationId: itemData.location_id,
         categoryId: itemData.category_id,
         alarmAt: itemData.alarm_at ? new Date(itemData.alarm_at) : null,
+        barcode: itemData.barcode,
       });
     }
   }, [itemData, reset]);
@@ -143,6 +149,7 @@ export default function EditItemScreen() {
         location_id: data.locationId,
         category_id: data.categoryId,
         memo: data.memo,
+        barcode: data.barcode,
         updated_at: new Date().toISOString(),
         alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
         notification_id: newNotificationId,
@@ -235,6 +242,25 @@ export default function EditItemScreen() {
               mode="outlined"
               style={styles.input}
             />
+          )}
+        />
+        
+        <Controller
+          control={control}
+          name="barcode"
+          render={({ field: { onChange, value } }) => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <TextInput
+                label="バーコード"
+                value={value || ''}
+                onChangeText={onChange}
+                mode="outlined"
+                style={{ flex: 1, marginRight: 8 }}
+              />
+              <Button mode="contained-tonal" onPress={() => setScannerVisible(true)} icon="barcode-scan">
+                スキャン
+              </Button>
+            </View>
           )}
         />
         
@@ -379,6 +405,14 @@ export default function EditItemScreen() {
         >
           保存する
         </Button>
+
+        <BarcodeScannerModal
+          visible={scannerVisible}
+          onDismiss={() => setScannerVisible(false)}
+          onScan={(code) => {
+            setValue('barcode', code);
+          }}
+        />
       </ScrollView>
     </>
   );

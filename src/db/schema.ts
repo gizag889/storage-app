@@ -20,4 +20,5 @@ export const items = sqliteTable('items', {
   updated_at: text('updated_at').notNull(),
   alarm_at: text('alarm_at'),
   notification_id: text('notification_id'),
+  barcode: text('barcode'),
 });

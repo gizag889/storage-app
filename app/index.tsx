@@ -17,6 +17,7 @@ type ItemWithRelations = {
   memo: string | null;
   updatedAt: string;
   alarmAt: string | null;
+  barcode: string | null;
 };
 
 const formatDate = (isoString: string) => {
@@ -51,6 +52,7 @@ export default function HomeScreen() {
         memo: items.memo,
         updatedAt: items.updated_at,
         alarmAt: items.alarm_at,
+        barcode: items.barcode,
       }).from(items)
         .leftJoin(locations, eq(items.location_id, locations.id))
         .leftJoin(categories, eq(items.category_id, categories.id));
@@ -65,7 +67,8 @@ export default function HomeScreen() {
       return result.filter(item => 
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         (item.locationName && item.locationName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (item.categoryName && item.categoryName.toLowerCase().includes(searchQuery.toLowerCase()))
+        (item.categoryName && item.categoryName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.barcode && item.barcode.includes(searchQuery))
       );
     }
   });
@@ -114,7 +117,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Searchbar
-          placeholder="アイテム名、場所、カテゴリーで検索"
+          placeholder="アイテム名、場所、カテゴリー、バーコードで検索"
           onChangeText={setSearchQuery}
           value={searchQuery}
           style={styles.searchbar}
@@ -160,6 +163,11 @@ export default function HomeScreen() {
                   {item.alarmAt && (
                     <Chip compact style={{ marginRight: 8, marginBottom: 4, backgroundColor: '#fff3e0' }} icon="bell">
                       {formatDate(item.alarmAt)}
+                    </Chip>
+                  )}
+                  {item.barcode && (
+                    <Chip compact style={{ marginRight: 8, marginBottom: 4 }} icon="barcode">
+                      {item.barcode}
                     </Chip>
                   )}
                   <Text variant="bodySmall" style={{ color: 'gray', fontSize: 11, marginBottom: 4 }}>

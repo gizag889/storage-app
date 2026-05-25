@@ -9,6 +9,7 @@ import { QuantityCounter } from '../../src/components/QuantityCounter';
 import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useForm, Controller } from 'react-hook-form';
+import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
 
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -28,13 +29,14 @@ type FormData = {
   locationId: string | null;
   categoryId: string | null;
   alarmAt: Date | null;
+  barcode: string | null;
 };
 
 export default function AddItemScreen() {
   const theme = useTheme();
   const queryClient = useQueryClient();
 
-  const { control, handleSubmit, watch } = useForm<FormData>({
+  const { control, handleSubmit, watch, setValue } = useForm<FormData>({
     defaultValues: {
       name: '',
       quantity: 0,
@@ -42,8 +44,11 @@ export default function AddItemScreen() {
       locationId: null,
       categoryId: null,
       alarmAt: null,
+      barcode: null,
     }
   });
+
+  const [scannerVisible, setScannerVisible] = useState(false);
 
   //日付や時間を選ぶためのカレンダー/時計画面（ダイアログ）を画面に表示するか、非表示にするかを管理するフラグ
   const [showPicker, setShowPicker] = useState(false);
@@ -94,6 +99,7 @@ export default function AddItemScreen() {
         location_id: data.locationId,
         category_id: data.categoryId,
         memo: data.memo,
+        barcode: data.barcode,
         updated_at: new Date().toISOString(),
         alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
         notification_id: notificationId,
@@ -136,6 +142,25 @@ export default function AddItemScreen() {
             mode="outlined"
             style={styles.input}
           />
+        )}
+      />
+      
+      <Controller
+        control={control}
+        name="barcode"
+        render={({ field: { onChange, value } }) => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+            <TextInput
+              label="バーコード"
+              value={value || ''}
+              onChangeText={onChange}
+              mode="outlined"
+              style={{ flex: 1, marginRight: 8 }}
+            />
+            <Button mode="contained-tonal" onPress={() => setScannerVisible(true)} icon="barcode-scan">
+              スキャン
+            </Button>
+          </View>
         )}
       />
       
@@ -274,6 +299,14 @@ export default function AddItemScreen() {
       >
         保存する
       </Button>
+
+      <BarcodeScannerModal
+        visible={scannerVisible}
+        onDismiss={() => setScannerVisible(false)}
+        onScan={(code) => {
+          setValue('barcode', code);
+        }}
+      />
     </ScrollView>
   );
 }
