@@ -57,8 +57,11 @@ export default function HomeScreen() {
 
       return await query;
     },
+    //TanStack Query の select オプションを利用して、「データベースから取得した全データの中から、ユーザーが入力した検索ワードに合致するアイテムだけを抽出（フィルタリング）する」
     select: (result) => {
+       // 1. 検索ワード（searchQuery）が空の場合は、加工せずそのまま全データを返す
       if (!searchQuery) return result;
+      // 2. 検索ワードがある場合、全データ（result）から条件に合うものだけを絞り込む
       return result.filter(item => 
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         (item.locationName && item.locationName.toLowerCase().includes(searchQuery.toLowerCase())) ||

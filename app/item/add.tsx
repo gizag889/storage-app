@@ -90,7 +90,7 @@ export default function AddItemScreen() {
       await db.insert(items).values({
         id: generateUUID(),
         name: data.name,
-        quantity: data.quantity,
+        quantity: data.quantity,  
         location_id: data.locationId,
         category_id: data.categoryId,
         memo: data.memo,
