@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Modal, StyleSheet, View, Text } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Button, useTheme } from 'react-native-paper';
+import { Button, useTheme, Snackbar } from 'react-native-paper';
 
 interface BarcodeScannerModalProps {
   visible: boolean;
@@ -12,6 +12,14 @@ interface BarcodeScannerModalProps {
 export function BarcodeScannerModal({ visible, onDismiss, onScan }: BarcodeScannerModalProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const theme = useTheme();
+  const [scanned, setScanned] = useState(false);
+  const [scannedCode, setScannedCode] = useState('');
+
+  const handleClose = () => {
+    setScanned(false);
+    setScannedCode('');
+    onDismiss();
+  };
 
   if (!visible) return null;
 
@@ -36,7 +44,7 @@ export function BarcodeScannerModal({ visible, onDismiss, onScan }: BarcodeScann
             <Button mode="contained" onPress={requestPermission}>
               カメラを許可する
             </Button>
-            <Button style={{ marginTop: 8 }} onPress={onDismiss}>
+            <Button style={{ marginTop: 8 }} onPress={handleClose}>
               キャンセル
             </Button>
           </View>
@@ -53,8 +61,15 @@ export function BarcodeScannerModal({ visible, onDismiss, onScan }: BarcodeScann
           barcodeScannerSettings={{
             barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'upc_e', 'code39', 'code128'],
           }}
-          onBarcodeScanned={({ data }) => {
+          onBarcodeScanned={scanned ? undefined : ({ data }) => {
+            setScanned(true);
+            setScannedCode(data);
             onScan(data);
+            
+            // 2秒間は再読み込みを制限
+            setTimeout(() => {
+              setScanned(false);
+            }, 2000);
           }}
         />
         <View style={styles.overlay}>
@@ -63,11 +78,20 @@ export function BarcodeScannerModal({ visible, onDismiss, onScan }: BarcodeScann
           </View>
           <View style={styles.scanArea} />
           <View style={styles.footer}>
-            <Button mode="contained" onPress={onDismiss} buttonColor={theme.colors.error}>
-              キャンセル
+            <Button mode="contained" onPress={handleClose} buttonColor={theme.colors.error}>
+              閉じる
             </Button>
           </View>
         </View>
+
+        <Snackbar
+          visible={scanned}
+          onDismiss={() => setScanned(false)}
+          duration={2000}
+          style={styles.snackbar}
+        >
+          <Text style={{ color: '#fff' }}>読み取り成功: {scannedCode}</Text>
+        </Snackbar>
       </View>
     </Modal>
   );
@@ -114,5 +138,11 @@ const styles = StyleSheet.create({
     padding: 40,
     backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
+  },
+  snackbar: {
+    position: 'absolute',
+    bottom: 120,
+    left: 16,
+    right: 16,
   },
 });
