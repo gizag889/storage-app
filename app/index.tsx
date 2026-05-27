@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import { FAB, List, Searchbar, Chip, Text, useTheme } from 'react-native-paper';
+import { FAB, List, Searchbar, Chip, Text, useTheme, Snackbar } from 'react-native-paper';
+import { QuickScanModal } from '../src/components/QuickScanModal';
 import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '../src/db/client';
@@ -39,6 +40,10 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const theme = useTheme();
   const queryClient = useQueryClient();
+  const [quickScanVisible, setQuickScanVisible] = useState(false);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [fabOpen, setFabOpen] = useState(false);
 
   const { data, isPending, isError, isFetching } = useQuery({
     queryKey: ['items'],
@@ -111,6 +116,19 @@ export default function HomeScreen() {
 
   const handleQuantityChange = (id: string, newQuantity: number) => {
     mutation.mutate({ id, newQuantity });
+  };
+
+  const handleQuickScan = (barcode: string, mode: 'add' | 'remove') => {
+    const item = data?.find(i => i.barcode === barcode);
+    if (item) {
+      const newQuantity = mode === 'add' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
+      handleQuantityChange(item.id, newQuantity);
+      setSnackbarMessage(`${item.name}の在庫を${mode === 'add' ? '+1' : '-1'}しました。`);
+    } else {
+      setSnackbarMessage('未登録のバーコードです。');
+    }
+    setQuickScanVisible(false);
+    setSnackbarVisible(true);
   };
 
   return (
@@ -188,18 +206,37 @@ export default function HomeScreen() {
         />
       )}
 
-      <FAB
-        style={[styles.fab, { bottom: 80, right: 16 }]}
-        icon="cog"
-        onPress={() => router.push('/settings')}
-        variant="surface"
-        size="small"
+      <FAB.Group
+        open={fabOpen}
+        visible
+        icon={fabOpen ? 'close' : 'menu'}
+        actions={[
+          { icon: 'cog', label: '設定', onPress: () => router.push('/settings') },
+          { icon: 'plus', label: 'アイテム追加', onPress: () => router.push('/item/add') },
+          { icon: 'barcode-scan', label: 'クイックスキャン', onPress: () => setQuickScanVisible(true) },
+        ]}
+        onStateChange={({ open }) => setFabOpen(open)}
+        onPress={() => {
+          if (fabOpen) {
+            // do something if the speed dial is open
+          }
+        }}
       />
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        onPress={() => router.push('/item/add')}
+      
+      <QuickScanModal
+        visible={quickScanVisible}
+        onDismiss={() => setQuickScanVisible(false)}
+        onScan={handleQuickScan}
       />
+
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={3000}
+        style={{ bottom: 80 }}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }
