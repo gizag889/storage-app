@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { TextInput, Button, Text, Menu, TouchableRipple, IconButton, useTheme } from 'react-native-paper';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '../../src/db/client';
 import { items, locations, categories } from '../../src/db/schema';
@@ -36,6 +36,8 @@ export default function AddItemScreen() {
   const theme = useTheme();
   const queryClient = useQueryClient();
 
+  const { barcode } = useLocalSearchParams<{ barcode?: string }>();
+
   const { control, handleSubmit, watch, setValue } = useForm<FormData>({
     defaultValues: {
       name: '',
@@ -44,9 +46,15 @@ export default function AddItemScreen() {
       locationId: null,
       categoryId: null,
       alarmAt: null,
-      barcode: null,
+      barcode: barcode || null,
     }
   });
+
+  React.useEffect(() => {
+    if (barcode) {
+      setValue('barcode', barcode);
+    }
+  }, [barcode]);
 
   const [scannerVisible, setScannerVisible] = useState(false);
 

@@ -120,18 +120,25 @@ export default function HomeScreen() {
   };
 
   const handleQuickScan = (barcode: string, mode: 'add' | 'remove') => {
-    const item = data?.find(i => i.barcode === barcode);
-    if (item) {
+    const matchedItems = data?.filter(i => i.barcode === barcode) || [];
+    
+    if (matchedItems.length === 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      setQuickScanVisible(false);
+      router.push(`/item/add?barcode=${barcode}`);
+    } else if (matchedItems.length === 1) {
+      const item = matchedItems[0];
       const newQuantity = mode === 'add' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
       handleQuantityChange(item.id, newQuantity);
       setSnackbarMessage(`${item.name}の在庫を${mode === 'add' ? '+1' : '-1'}しました。`);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setQuickScanVisible(false);
+      setSnackbarVisible(true);
     } else {
-      setSnackbarMessage('未登録のバーコードです。');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setQuickScanVisible(false);
+      router.push(`/item/select?barcode=${barcode}&mode=${mode}`);
     }
-    setQuickScanVisible(false);
-    setSnackbarVisible(true);
   };
 
   return (

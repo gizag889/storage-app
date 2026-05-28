@@ -91,6 +91,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" options={{ title: '在庫一覧' }} />
           <Stack.Screen name="item/add" options={{ title: 'アイテム追加', presentation: 'modal' }} />
           <Stack.Screen name="item/[id]" options={{ title: 'アイテム詳細' }} />
+          <Stack.Screen name="item/select" options={{ title: 'アイテムを選択', presentation: 'modal' }} />
           <Stack.Screen name="settings/index" options={{ title: '設定' }} />
           <Stack.Screen name="settings/locations" options={{ title: '場所管理' }} />
           <Stack.Screen name="settings/categories" options={{ title: 'カテゴリー管理' }} />
