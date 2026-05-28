@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { FAB, List, Searchbar, Chip, Text, useTheme, Snackbar } from 'react-native-paper';
 import { QuickScanModal } from '../src/components/QuickScanModal';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '../src/db/client';
@@ -124,8 +125,10 @@ export default function HomeScreen() {
       const newQuantity = mode === 'add' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
       handleQuantityChange(item.id, newQuantity);
       setSnackbarMessage(`${item.name}の在庫を${mode === 'add' ? '+1' : '-1'}しました。`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else {
       setSnackbarMessage('未登録のバーコードです。');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
     setQuickScanVisible(false);
     setSnackbarVisible(true);
