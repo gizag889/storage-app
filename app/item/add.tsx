@@ -10,13 +10,7 @@ import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useForm, Controller } from 'react-hook-form';
 import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
-
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
+import * as Crypto from 'expo-crypto';
 
 const formatDateTime = (date: Date) => {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -106,7 +100,7 @@ export default function AddItemScreen() {
       }
 
       await db.insert(items).values({
-        id: generateUUID(),
+        id: Crypto.randomUUID(),
         name: data.name,
         quantity: data.quantity,  
         min_quantity: data.minQuantity,

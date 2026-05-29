@@ -5,8 +5,10 @@ import { QuickScanModal } from '../src/components/QuickScanModal';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { seedDatabase } from '../src/db/seed';
+import * as Crypto from 'expo-crypto';
 import { db } from '../src/db/client';
-import { items, locations, categories } from '../src/db/schema';
+import { items, locations, categories, logs } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { QuantityCounter } from '../src/components/QuantityCounter';
 
@@ -82,25 +84,31 @@ export default function HomeScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: async ({ id, newQuantity }: { id: string, newQuantity: number }) => {
+    mutationFn: async ({ item, newQuantity }: { item: ItemWithRelations, newQuantity: number }) => {
       await db.update(items)
         .set({ 
           quantity: newQuantity, 
           updated_at: new Date().toISOString() 
         })
-        .where(eq(items.id, id));
+        .where(eq(items.id, item.id));
+
+      if (item.quantity >= item.minQuantity && newQuantity < item.minQuantity) {
+        await db.insert(logs).values({
+          id: Crypto.randomUUID(),
+          item_id: item.id,
+          log_type: 'low_stock',
+          message: `${item.name} の在庫が最低数（${item.minQuantity}）を下回りました。現在数: ${newQuantity}`,
+          created_at: new Date().toISOString(),
+        });
+      }
     },
-    onMutate: async ({ id, newQuantity }) => {
-      //楽観的アップデート（Optimistic Updates）**を実現するために、進行中の（またはフェッチ待ちの）クエリをキャンセルする
+    onMutate: async ({ item, newQuantity }) => {
       await queryClient.cancelQueries({ queryKey: ['items'] });
-      //通信エラーやサーバー処理の失敗時に、UIの表示を元の正しい状態にロールバック（復元）するため、previousItemに保存
       const previousItems = queryClient.getQueryData<ItemWithRelations[]>(['items']);
       
       if (previousItems) {
         queryClient.setQueryData<ItemWithRelations[]>(['items'], old => 
-          //外側の条件分岐:old ? (存在する場合の処理) : [] キャッシュデータ（old）が存在するかどうか
-          //内側の条件分岐:item.id === id ? (変更する) : (そのまま) ループ中のアイテムが**「今回数量を変更した対象のアイテムか」
-          old ? old.map(item => item.id === id ? { ...item, quantity: newQuantity } : item) : []
+          old ? old.map(i => i.id === item.id ? { ...i, quantity: newQuantity } : i) : []
         );
       }
       return { previousItems };
@@ -117,8 +125,8 @@ export default function HomeScreen() {
     },
   });
 
-  const handleQuantityChange = (id: string, newQuantity: number) => {
-    mutation.mutate({ id, newQuantity });
+  const handleQuantityChange = (item: ItemWithRelations, newQuantity: number) => {
+    mutation.mutate({ item, newQuantity });
   };
 
   const handleQuickScan = (barcode: string, mode: 'add' | 'remove') => {
@@ -131,7 +139,7 @@ export default function HomeScreen() {
     } else if (matchedItems.length === 1) {
       const item = matchedItems[0];
       const newQuantity = mode === 'add' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
-      handleQuantityChange(item.id, newQuantity);
+      handleQuantityChange(item, newQuantity);
       setSnackbarMessage(`${item.name}の在庫を${mode === 'add' ? '+1' : '-1'}しました。`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setQuickScanVisible(false);
@@ -208,7 +216,7 @@ export default function HomeScreen() {
               right={() => (
                 <QuantityCounter 
                   value={item.quantity} 
-                  onChange={(val) => handleQuantityChange(item.id, val)} 
+                  onChange={(val) => handleQuantityChange(item, val)} 
                   isAlert={item.quantity < item.minQuantity}
                   targetValue={item.minQuantity}
                 />
@@ -225,6 +233,7 @@ export default function HomeScreen() {
         visible
         icon={fabOpen ? 'close' : 'menu'}
         actions={[
+          { icon: 'history', label: 'ログを確認', onPress: () => router.push('/log') },
           { icon: 'cog', label: '設定', onPress: () => router.push('/settings') },
           { icon: 'plus', label: 'アイテム追加', onPress: () => router.push('/item/add') },
           { icon: 'barcode-scan', label: 'クイックスキャン', onPress: () => setQuickScanVisible(true) },

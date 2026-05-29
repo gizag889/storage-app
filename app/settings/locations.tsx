@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '../../src/db/client';
 import { locations } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
-import { v4 as uuidv4 } from 'uuid';
+import * as Crypto from 'expo-crypto';
 
 export default function LocationsScreen() {
   const theme = useTheme();
@@ -26,7 +26,7 @@ export default function LocationsScreen() {
       if (id) {
         await db.update(locations).set({ name }).where(eq(locations.id, id));
       } else {
-        await db.insert(locations).values({ id: uuidv4(), name });
+        await db.insert(locations).values({ id: Crypto.randomUUID(), name });
       }
     },
     onSuccess: () => {

@@ -3,8 +3,9 @@ import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { List, Text, Chip, useTheme, Snackbar } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Crypto from 'expo-crypto';
 import { db } from '../../src/db/client';
-import { items, locations, categories } from '../../src/db/schema';
+import { items, locations, categories, logs } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
 import * as Haptics from 'expo-haptics';
 
@@ -48,13 +49,23 @@ export default function SelectItemScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: async ({ id, newQuantity }: { id: string, newQuantity: number }) => {
+    mutationFn: async ({ item, newQuantity }: { item: ItemWithRelations, newQuantity: number }) => {
       await db.update(items)
         .set({ 
           quantity: newQuantity, 
           updated_at: new Date().toISOString() 
         })
-        .where(eq(items.id, id));
+        .where(eq(items.id, item.id));
+
+      if (item.quantity >= item.minQuantity && newQuantity < item.minQuantity) {
+        await db.insert(logs).values({
+          id: Crypto.randomUUID(),
+          item_id: item.id,
+          log_type: 'low_stock',
+          message: `${item.name} の在庫が最低数（${item.minQuantity}）を下回りました。現在数: ${newQuantity}`,
+          created_at: new Date().toISOString(),
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
@@ -69,7 +80,7 @@ export default function SelectItemScreen() {
   const handleSelectItem = (item: ItemWithRelations) => {
     if (!mode) return;
     const newQuantity = mode === 'add' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
-    mutation.mutate({ id: item.id, newQuantity });
+    mutation.mutate({ item, newQuantity });
   };
 
   if (isPending) {

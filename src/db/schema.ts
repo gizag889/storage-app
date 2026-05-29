@@ -24,3 +24,11 @@ export const items = sqliteTable('items', {
   notification_id: text('notification_id'),
   barcode: text('barcode'),
 });
+
+export const logs = sqliteTable('logs', {
+  id: text('id').primaryKey(),
+  item_id: text('item_id').references(() => items.id),
+  log_type: text('log_type').notNull(),
+  message: text('message').notNull(),
+  created_at: text('created_at').notNull(),
+});

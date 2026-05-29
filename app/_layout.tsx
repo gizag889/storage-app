@@ -1,6 +1,9 @@
 import { Stack } from 'expo-router';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { db } from '../src/db/client';
+import { items, logs } from '../src/db/schema';
+import { eq, lte, isNotNull, and } from 'drizzle-orm';
+import * as Crypto from 'expo-crypto';
 import migrations from '../drizzle/migrations';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { Text, View, ActivityIndicator } from 'react-native';
@@ -68,6 +71,50 @@ export default function RootLayout() {
     }
   }, [success]);
 
+  useEffect(() => {
+    if (!success || !isSeeded) return;
+
+    const checkPastAlarms = async () => {
+      try {
+        const now = new Date().toISOString();
+        const pastAlarms = await db.select().from(items).where(and(isNotNull(items.alarm_at), lte(items.alarm_at, now)));
+        
+        for (const item of pastAlarms) {
+          const message = item.alarm_message || `${item.name} のアラーム時間です`;
+          await db.insert(logs).values({
+            id: Crypto.randomUUID(),
+            item_id: item.id,
+            log_type: 'alarm',
+            message: `アラーム: ${message}`,
+            created_at: new Date().toISOString(),
+          });
+          
+          await db.update(items).set({
+            alarm_at: null,
+            alarm_message: null,
+            notification_id: null,
+          }).where(eq(items.id, item.id));
+        }
+      } catch (err) {
+        console.error('Failed to check past alarms:', err);
+      }
+    };
+
+    checkPastAlarms();
+
+    const subscription = Notifications.addNotificationReceivedListener(() => {
+      checkPastAlarms();
+    });
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(() => {
+      checkPastAlarms();
+    });
+
+    return () => {
+      subscription.remove();
+      responseSubscription.remove();
+    };
+  }, [success, isSeeded]);
+
   if (error) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
@@ -95,6 +142,7 @@ export default function RootLayout() {
           <Stack.Screen name="settings/index" options={{ title: '設定' }} />
           <Stack.Screen name="settings/locations" options={{ title: '場所管理' }} />
           <Stack.Screen name="settings/categories" options={{ title: 'カテゴリー管理' }} />
+          <Stack.Screen name="log/index" options={{ title: 'ログ履歴' }} />
         </Stack>
       </PaperProvider>
     </QueryClientProvider>

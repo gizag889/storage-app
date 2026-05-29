@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '../../src/db/client';
 import { categories } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
-import { v4 as uuidv4 } from 'uuid';
+import * as Crypto from 'expo-crypto';
 
 export default function CategoriesScreen() {
   const theme = useTheme();
@@ -26,7 +26,7 @@ export default function CategoriesScreen() {
       if (id) {
         await db.update(categories).set({ name }).where(eq(categories.id, id));
       } else {
-        await db.insert(categories).values({ id: uuidv4(), name });
+        await db.insert(categories).values({ id: Crypto.randomUUID(), name });
       }
     },
     onSuccess: () => {

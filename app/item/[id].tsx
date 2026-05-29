@@ -3,8 +3,9 @@ import { View, StyleSheet, ScrollView, Alert, Platform, ActivityIndicator } from
 import { TextInput, Button, Text, Menu, TouchableRipple, IconButton, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Crypto from 'expo-crypto';
 import { db } from '../../src/db/client';
-import { items, locations, categories } from '../../src/db/schema';
+import { items, locations, categories, logs } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { QuantityCounter } from '../../src/components/QuantityCounter';
 import * as Notifications from 'expo-notifications';
@@ -163,6 +164,16 @@ export default function EditItemScreen() {
         alarm_message: data.alarmMessage.trim() || null,
         notification_id: newNotificationId,
       }).where(eq(items.id, id));
+
+      if (itemData && itemData.quantity >= itemData.min_quantity && data.quantity < data.minQuantity) {
+        await db.insert(logs).values({
+          id: Crypto.randomUUID(),
+          item_id: id,
+          log_type: 'low_stock',
+          message: `${data.name} の在庫が最低数（${data.minQuantity}）を下回りました。現在数: ${data.quantity}`,
+          created_at: new Date().toISOString(),
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
