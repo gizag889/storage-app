@@ -11,6 +11,7 @@ import { db } from '../src/db/client';
 import { items, locations, categories, logs } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { QuantityCounter } from '../src/components/QuantityCounter';
+import { Image } from 'expo-image';
 
 type ItemWithRelations = {
   id: string;
@@ -23,6 +24,7 @@ type ItemWithRelations = {
   updatedAt: string;
   alarmAt: string | null;
   barcode: string | null;
+  imageUri: string | null;
 };
 
 const formatDate = (isoString: string) => {
@@ -63,6 +65,7 @@ export default function HomeScreen() {
         updatedAt: items.updated_at,
         alarmAt: items.alarm_at,
         barcode: items.barcode,
+        imageUri: items.image_uri,
       }).from(items)
         .leftJoin(locations, eq(items.location_id, locations.id))
         .leftJoin(categories, eq(items.category_id, categories.id));
@@ -185,6 +188,17 @@ export default function HomeScreen() {
           renderItem={({ item }) => (
             <List.Item
               title={item.name}
+              left={() => (
+                <View style={styles.listItemImageContainer}>
+                  {item.imageUri ? (
+                    <Image source={{ uri: item.imageUri }} style={styles.listItemImage} contentFit="cover" />
+                  ) : (
+                    <View style={styles.listItemNoImage}>
+                      <Text style={{color: '#999', fontSize: 10}}>No Image</Text>
+                    </View>
+                  )}
+                </View>
+              )}
               description={() => (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
                   {item.categoryName && (
@@ -271,4 +285,7 @@ const styles = StyleSheet.create({
   fetchingIndicator: { position: 'absolute', right: 28, top: 28 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   fab: { position: 'absolute', margin: 16, right: 0, bottom: 0 },
+  listItemImageContainer: { width: 60, height: 60, borderRadius: 8, overflow: 'hidden', marginRight: 8, marginLeft: 8, alignSelf: 'center', backgroundColor: '#f0f0f0' },
+  listItemImage: { width: '100%', height: '100%' },
+  listItemNoImage: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
 });

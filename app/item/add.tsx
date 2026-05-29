@@ -11,6 +11,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useForm, Controller } from 'react-hook-form';
 import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
 import * as Crypto from 'expo-crypto';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Image } from 'expo-image';
 
 const formatDateTime = (date: Date) => {
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
@@ -26,6 +29,7 @@ type FormData = {
   alarmAt: Date | null;
   alarmMessage: string;
   barcode: string | null;
+  imageUri: string | null;
 };
 
 export default function AddItemScreen() {
@@ -45,6 +49,7 @@ export default function AddItemScreen() {
       alarmAt: null,
       alarmMessage: '',
       barcode: barcode || null,
+      imageUri: null,
     }
   });
 
@@ -74,6 +79,47 @@ export default function AddItemScreen() {
     queryKey: ['categories'],
     queryFn: async () => await db.select().from(categories),
   });
+
+  const pickImage = async (onChange: (uri: string) => void) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      await saveImage(result.assets[0].uri, onChange);
+    }
+  };
+
+  const takePhoto = async (onChange: (uri: string) => void) => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('権限エラー', 'カメラへのアクセス許可が必要です');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      await saveImage(result.assets[0].uri, onChange);
+    }
+  };
+
+  const saveImage = async (uri: string, onChange: (uri: string) => void) => {
+    try {
+      const fileName = uri.split('/').pop() || `${Crypto.randomUUID()}.jpg`;
+      const newPath = `${FileSystem.documentDirectory}${fileName}`;
+      await FileSystem.copyAsync({
+        from: uri,
+        to: newPath,
+      });
+      onChange(newPath);
+    } catch (e) {
+      console.error('Failed to save image:', e);
+      Alert.alert('エラー', '画像の保存に失敗しました');
+    }
+  };
 
   // --- Mutation ---
   const addMutation = useMutation({
@@ -112,6 +158,7 @@ export default function AddItemScreen() {
         alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
         alarm_message: data.alarmMessage.trim() || null,
         notification_id: notificationId,
+        image_uri: data.imageUri,
       });
     },
     onSuccess: () => {
@@ -140,6 +187,36 @@ export default function AddItemScreen() {
 
   return (
     <ScrollView style={styles.container}>
+      <Controller
+        control={control}
+        name="imageUri"
+        render={({ field: { onChange, value } }) => (
+          <View style={styles.imageSection}>
+            {value ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: value }} style={styles.previewImage} contentFit="cover" />
+                <IconButton 
+                  icon="close-circle" 
+                  size={24} 
+                  iconColor="white"
+                  style={styles.removeImageBtn} 
+                  onPress={() => onChange(null)} 
+                />
+              </View>
+            ) : (
+              <View style={styles.imageButtons}>
+                <Button icon="camera" mode="outlined" onPress={() => takePhoto(onChange)} style={styles.imgBtn}>
+                  写真を撮る
+                </Button>
+                <Button icon="image" mode="outlined" onPress={() => pickImage(onChange)} style={styles.imgBtn}>
+                  ライブラリ
+                </Button>
+              </View>
+            )}
+          </View>
+        )}
+      />
+
       <Controller
         control={control}
         name="name"
@@ -349,6 +426,12 @@ export default function AddItemScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  imageSection: { marginBottom: 16, alignItems: 'center' },
+  imageButtons: { flexDirection: 'row', gap: 16 },
+  imgBtn: { flex: 1 },
+  imagePreviewContainer: { position: 'relative', width: 200, height: 200, borderRadius: 12, overflow: 'hidden' },
+  previewImage: { width: '100%', height: '100%' },
+  removeImageBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.5)', margin: 0 },
   input: { marginBottom: 16 },
   label: { marginBottom: 8 },
   dropdownContainer: { marginBottom: 16 },

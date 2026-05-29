@@ -43,6 +43,13 @@
       "when": 1780025665164,
       "tag": "0005_sticky_screwball",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1780034908342,
+      "tag": "0006_sleepy_whistler",
+      "breakpoints": true
     }
   ]
 }

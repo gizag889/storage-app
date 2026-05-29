@@ -22,6 +22,7 @@ export const items = sqliteTable('items', {
   alarm_at: text('alarm_at'),
   alarm_message: text('alarm_message'),
   notification_id: text('notification_id'),
+  image_uri: text('image_uri'),
   barcode: text('barcode'),
 });
 

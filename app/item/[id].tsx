@@ -12,6 +12,9 @@ import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useForm, Controller } from 'react-hook-form';
 import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Image } from 'expo-image';
 
 const formatDate = (isoString: string) => {
   try {
@@ -38,6 +41,7 @@ type FormData = {
   alarmAt: Date | null;
   alarmMessage: string;
   barcode: string | null;
+  imageUri: string | null;
 };
 
 export default function EditItemScreen() {
@@ -56,6 +60,7 @@ export default function EditItemScreen() {
       alarmAt: null,
       alarmMessage: '',
       barcode: null,
+      imageUri: null,
     }
   });
 
@@ -103,6 +108,7 @@ export default function EditItemScreen() {
         alarmAt: itemData.alarm_at ? new Date(itemData.alarm_at) : null,
         alarmMessage: itemData.alarm_message || '',
         barcode: itemData.barcode,
+        imageUri: itemData.image_uri || null,
       });
     }
   }, [itemData, reset]);
@@ -116,6 +122,47 @@ export default function EditItemScreen() {
   }, [isError]);
 
   // --- Mutations ---
+  const pickImage = async (onChange: (uri: string) => void) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      await saveImage(result.assets[0].uri, onChange);
+    }
+  };
+
+  const takePhoto = async (onChange: (uri: string) => void) => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('権限エラー', 'カメラへのアクセス許可が必要です');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      await saveImage(result.assets[0].uri, onChange);
+    }
+  };
+
+  const saveImage = async (uri: string, onChange: (uri: string) => void) => {
+    try {
+      const fileName = uri.split('/').pop() || `${Crypto.randomUUID()}.jpg`;
+      const newPath = `${FileSystem.documentDirectory}${fileName}`;
+      await FileSystem.copyAsync({
+        from: uri,
+        to: newPath,
+      });
+      onChange(newPath);
+    } catch (e) {
+      console.error('Failed to save image:', e);
+      Alert.alert('エラー', '画像の保存に失敗しました');
+    }
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (data: FormData) => {
       let newNotificationId = itemData?.notification_id || null;
@@ -163,6 +210,7 @@ export default function EditItemScreen() {
         alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
         alarm_message: data.alarmMessage.trim() || null,
         notification_id: newNotificationId,
+        image_uri: data.imageUri,
       }).where(eq(items.id, id));
 
       if (itemData && itemData.quantity >= itemData.min_quantity && data.quantity < data.minQuantity) {
@@ -251,6 +299,36 @@ export default function EditItemScreen() {
         }} 
       />
       <ScrollView style={styles.container}>
+        <Controller
+          control={control}
+          name="imageUri"
+          render={({ field: { onChange, value } }) => (
+            <View style={styles.imageSection}>
+              {value ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image source={{ uri: value }} style={styles.previewImage} contentFit="cover" />
+                  <IconButton 
+                    icon="close-circle" 
+                    size={24} 
+                    iconColor="white"
+                    style={styles.removeImageBtn} 
+                    onPress={() => onChange(null)} 
+                  />
+                </View>
+              ) : (
+                <View style={styles.imageButtons}>
+                  <Button icon="camera" mode="outlined" onPress={() => takePhoto(onChange)} style={styles.imgBtn}>
+                    写真を撮る
+                  </Button>
+                  <Button icon="image" mode="outlined" onPress={() => pickImage(onChange)} style={styles.imgBtn}>
+                    ライブラリ
+                  </Button>
+                </View>
+              )}
+            </View>
+          )}
+        />
+
         <Controller
           control={control}
           name="name"
@@ -467,6 +545,12 @@ export default function EditItemScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  imageSection: { marginBottom: 16, alignItems: 'center' },
+  imageButtons: { flexDirection: 'row', gap: 16 },
+  imgBtn: { flex: 1 },
+  imagePreviewContainer: { position: 'relative', width: 200, height: 200, borderRadius: 12, overflow: 'hidden' },
+  previewImage: { width: '100%', height: '100%' },
+  removeImageBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.5)', margin: 0 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
   input: { marginBottom: 16 },
   label: { marginBottom: 8 },
