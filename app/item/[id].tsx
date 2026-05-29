@@ -30,6 +30,7 @@ const formatDate = (isoString: string) => {
 type FormData = {
   name: string;
   quantity: number;
+  minQuantity: number;
   memo: string;
   locationId: string | null;
   categoryId: string | null;
@@ -46,6 +47,7 @@ export default function EditItemScreen() {
     defaultValues: {
       name: '',
       quantity: 0,
+      minQuantity: 0,
       memo: '',
       locationId: null,
       categoryId: null,
@@ -91,6 +93,7 @@ export default function EditItemScreen() {
       reset({
         name: itemData.name,
         quantity: itemData.quantity,
+        minQuantity: itemData.min_quantity,
         memo: itemData.memo || '',
         locationId: itemData.location_id,
         categoryId: itemData.category_id,
@@ -146,6 +149,7 @@ export default function EditItemScreen() {
       await db.update(items).set({
         name: data.name,
         quantity: data.quantity,
+        min_quantity: data.minQuantity,
         location_id: data.locationId,
         category_id: data.categoryId,
         memo: data.memo,
@@ -269,6 +273,17 @@ export default function EditItemScreen() {
           <Controller
             control={control}
             name="quantity"
+            render={({ field: { onChange, value } }) => (
+              <QuantityCounter value={value} onChange={onChange} min={0} />
+            )}
+          />
+        </View>
+
+        <View style={styles.counterContainer}>
+          <Text variant="titleMedium">最低在庫数 (警告のしきい値)</Text>
+          <Controller
+            control={control}
+            name="minQuantity"
             render={({ field: { onChange, value } }) => (
               <QuantityCounter value={value} onChange={onChange} min={0} />
             )}

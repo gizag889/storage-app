@@ -12,6 +12,7 @@ type ItemWithRelations = {
   id: string;
   name: string;
   quantity: number;
+  minQuantity: number;
   locationName: string | null;
   categoryName: string | null;
   memo: string | null;
@@ -32,6 +33,7 @@ export default function SelectItemScreen() {
         id: items.id,
         name: items.name,
         quantity: items.quantity,
+        minQuantity: items.min_quantity,
         locationName: locations.name,
         categoryName: categories.name,
         memo: items.memo,
@@ -97,8 +99,16 @@ export default function SelectItemScreen() {
             title={item.name}
             description={() => (
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-                <Chip compact style={{ marginRight: 8, marginBottom: 4 }} icon="package">
-                  数量: {item.quantity}
+                <Chip 
+                  compact 
+                  style={{ marginRight: 8, marginBottom: 4 }} 
+                  icon="package"
+                >
+                  <Text>数量: </Text>
+                  <Text style={item.quantity < item.minQuantity ? { color: theme.colors.error } : undefined}>
+                    {item.quantity}
+                  </Text>
+                  <Text> / {item.minQuantity}</Text>
                 </Chip>
                 {item.locationName && (
                   <Chip compact style={{ marginRight: 8, marginBottom: 4 }} icon="map-marker">

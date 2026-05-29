@@ -1,0 +1,1 @@
+ALTER TABLE `items` ADD `min_quantity` integer DEFAULT 0 NOT NULL;

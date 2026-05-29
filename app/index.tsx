@@ -14,6 +14,7 @@ type ItemWithRelations = {
   id: string;
   name: string;
   quantity: number;
+  minQuantity: number;
   locationName: string | null;
   categoryName: string | null;
   memo: string | null;
@@ -53,6 +54,7 @@ export default function HomeScreen() {
         id: items.id,
         name: items.name,
         quantity: items.quantity,
+        minQuantity: items.min_quantity,
         locationName: locations.name,
         categoryName: categories.name,
         memo: items.memo,
@@ -207,6 +209,8 @@ export default function HomeScreen() {
                 <QuantityCounter 
                   value={item.quantity} 
                   onChange={(val) => handleQuantityChange(item.id, val)} 
+                  isAlert={item.quantity < item.minQuantity}
+                  targetValue={item.minQuantity}
                 />
               )}
               onPress={() => router.push(`/item/${item.id}`)}

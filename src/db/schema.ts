@@ -14,6 +14,7 @@ export const items = sqliteTable('items', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   quantity: integer('quantity').notNull().default(0),
+  min_quantity: integer('min_quantity').notNull().default(0),
   location_id: text('location_id').references(() => locations.id),
   category_id: text('category_id').references(() => categories.id),
   memo: text('memo'),
