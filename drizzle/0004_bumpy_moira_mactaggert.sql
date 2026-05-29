@@ -1,0 +1,1 @@
+ALTER TABLE `items` ADD `alarm_message` text;

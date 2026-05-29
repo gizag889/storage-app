@@ -30,6 +30,7 @@ type FormData = {
   locationId: string | null;
   categoryId: string | null;
   alarmAt: Date | null;
+  alarmMessage: string;
   barcode: string | null;
 };
 
@@ -48,6 +49,7 @@ export default function AddItemScreen() {
       locationId: null,
       categoryId: null,
       alarmAt: null,
+      alarmMessage: '',
       barcode: barcode || null,
     }
   });
@@ -88,10 +90,11 @@ export default function AddItemScreen() {
           throw new Error('アラーム日時は未来の時間を指定してください');
         }
         try {
+          const messageBody = data.alarmMessage.trim() || `${data.name} のアラーム時間です`;
           notificationId = await Notifications.scheduleNotificationAsync({
             content: {
               title: 'リマインダー',
-              body: `${data.name} のアラーム時間です`,
+              body: messageBody,
               sound: true,
             },
             trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: data.alarmAt },
@@ -113,6 +116,7 @@ export default function AddItemScreen() {
         barcode: data.barcode,
         updated_at: new Date().toISOString(),
         alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
+        alarm_message: data.alarmMessage.trim() || null,
         notification_id: notificationId,
       });
     },
@@ -295,6 +299,22 @@ export default function AddItemScreen() {
           )}
         />
       </View>
+
+      {alarmAtValue && (
+        <Controller
+          control={control}
+          name="alarmMessage"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              label="アラームのメッセージ (任意)"
+              value={value}
+              onChangeText={onChange}
+              mode="outlined"
+              style={styles.input}
+            />
+          )}
+        />
+      )}
 
       <Controller
         control={control}

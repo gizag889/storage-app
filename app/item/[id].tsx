@@ -35,6 +35,7 @@ type FormData = {
   locationId: string | null;
   categoryId: string | null;
   alarmAt: Date | null;
+  alarmMessage: string;
   barcode: string | null;
 };
 
@@ -52,6 +53,7 @@ export default function EditItemScreen() {
       locationId: null,
       categoryId: null,
       alarmAt: null,
+      alarmMessage: '',
       barcode: null,
     }
   });
@@ -98,6 +100,7 @@ export default function EditItemScreen() {
         locationId: itemData.location_id,
         categoryId: itemData.category_id,
         alarmAt: itemData.alarm_at ? new Date(itemData.alarm_at) : null,
+        alarmMessage: itemData.alarm_message || '',
         barcode: itemData.barcode,
       });
     }
@@ -132,10 +135,11 @@ export default function EditItemScreen() {
           throw new Error('アラーム日時は未来の時間を指定してください');
         }
         try {
+          const messageBody = data.alarmMessage.trim() || `${data.name} のアラーム時間です`;
           newNotificationId = await Notifications.scheduleNotificationAsync({
             content: {
               title: 'リマインダー',
-              body: `${data.name} のアラーム時間です`,
+              body: messageBody,
               sound: true,
             },
             trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: data.alarmAt },
@@ -156,6 +160,7 @@ export default function EditItemScreen() {
         barcode: data.barcode,
         updated_at: new Date().toISOString(),
         alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
+        alarm_message: data.alarmMessage.trim() || null,
         notification_id: newNotificationId,
       }).where(eq(items.id, id));
     },
@@ -388,6 +393,22 @@ export default function EditItemScreen() {
             )}
           />
         </View>
+
+        {alarmAtValue && (
+          <Controller
+            control={control}
+            name="alarmMessage"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                label="アラームのメッセージ (任意)"
+                value={value}
+                onChangeText={onChange}
+                mode="outlined"
+                style={styles.input}
+              />
+            )}
+          />
+        )}
 
         <Controller
           control={control}

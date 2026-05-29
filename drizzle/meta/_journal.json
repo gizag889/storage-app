@@ -29,6 +29,13 @@
       "when": 1780017033793,
       "tag": "0003_condemned_the_fury",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1780024517032,
+      "tag": "0004_bumpy_moira_mactaggert",
+      "breakpoints": true
     }
   ]
 }
