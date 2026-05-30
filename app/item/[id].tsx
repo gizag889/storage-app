@@ -12,9 +12,8 @@ import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useForm, Controller } from 'react-hook-form';
 import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
+import { pickImage, takePhoto } from '../../src/utils/image';
 
 const formatDate = (isoString: string) => {
   try {
@@ -49,29 +48,6 @@ export default function EditItemScreen() {
   const theme = useTheme();
   const queryClient = useQueryClient();
   
-  const { control, handleSubmit, reset, watch, setValue } = useForm<FormData>({
-    defaultValues: {
-      name: '',
-      quantity: 0,
-      minQuantity: 0,
-      memo: '',
-      locationId: null,
-      categoryId: null,
-      alarmAt: null,
-      alarmMessage: '',
-      barcode: null,
-      imageUri: null,
-    }
-  });
-
-  const [scannerVisible, setScannerVisible] = useState(false);
-
-  const [showPicker, setShowPicker] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
-  
-  const [locMenuVisible, setLocMenuVisible] = useState(false);
-  const [catMenuVisible, setCatMenuVisible] = useState(false);
-
   // --- Queries ---
   const { data: locs = [] } = useQuery({
     queryKey: ['locations'],
@@ -94,24 +70,40 @@ export default function EditItemScreen() {
     },
   });
 
-  // Load data into form when itemData is fetched
-  useEffect(() => {
-    if (itemData) {
-      //reset は React Hook Form の useForm から提供される関数
-      reset({
-        name: itemData.name,
-        quantity: itemData.quantity,
-        minQuantity: itemData.min_quantity,
-        memo: itemData.memo || '',
-        locationId: itemData.location_id,
-        categoryId: itemData.category_id,
-        alarmAt: itemData.alarm_at ? new Date(itemData.alarm_at) : null,
-        alarmMessage: itemData.alarm_message || '',
-        barcode: itemData.barcode,
-        imageUri: itemData.image_uri || null,
-      });
-    }
-  }, [itemData, reset]);
+  const { control, handleSubmit, watch, setValue } = useForm<FormData>({
+    defaultValues: {
+      name: '',
+      quantity: 0,
+      minQuantity: 0,
+      memo: '',
+      locationId: null,
+      categoryId: null,
+      alarmAt: null,
+      alarmMessage: '',
+      barcode: null,
+      imageUri: null,
+    },
+    values: itemData ? {
+      name: itemData.name,
+      quantity: itemData.quantity,
+      minQuantity: itemData.min_quantity,
+      memo: itemData.memo || '',
+      locationId: itemData.location_id,
+      categoryId: itemData.category_id,
+      alarmAt: itemData.alarm_at ? new Date(itemData.alarm_at) : null,
+      alarmMessage: itemData.alarm_message || '',
+      barcode: itemData.barcode,
+      imageUri: itemData.image_uri || null,
+    } : undefined
+  });
+
+  const [scannerVisible, setScannerVisible] = useState(false);
+
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+  
+  const [locMenuVisible, setLocMenuVisible] = useState(false);
+  const [catMenuVisible, setCatMenuVisible] = useState(false);
 
   // Handle item not found error
   useEffect(() => {
@@ -121,47 +113,8 @@ export default function EditItemScreen() {
     }
   }, [isError]);
 
+
   // --- Mutations ---
-  const pickImage = async (onChange: (uri: string) => void) => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      await saveImage(result.assets[0].uri, onChange);
-    }
-  };
-
-  const takePhoto = async (onChange: (uri: string) => void) => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('権限エラー', 'カメラへのアクセス許可が必要です');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      await saveImage(result.assets[0].uri, onChange);
-    }
-  };
-
-  const saveImage = async (uri: string, onChange: (uri: string) => void) => {
-    try {
-      const fileName = uri.split('/').pop() || `${Crypto.randomUUID()}.jpg`;
-      const newPath = `${FileSystem.documentDirectory}${fileName}`;
-      await FileSystem.copyAsync({
-        from: uri,
-        to: newPath,
-      });
-      onChange(newPath);
-    } catch (e) {
-      console.error('Failed to save image:', e);
-      Alert.alert('エラー', '画像の保存に失敗しました');
-    }
-  };
 
   const saveMutation = useMutation({
     mutationFn: async (data: FormData) => {
