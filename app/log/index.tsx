@@ -5,21 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { db } from '../../src/db/client';
 import { logs, items } from '../../src/db/schema';
 import { desc, eq } from 'drizzle-orm';
-
-const formatDate = (isoString: string) => {
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return isoString;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    const hr = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    return `${y}/${m}/${d} ${hr}:${min}`;
-  } catch {
-    return isoString;
-  }
-};
+import { formatDate } from '../../src/utils/date';
 
 export default function LogScreen() {
   const theme = useTheme();

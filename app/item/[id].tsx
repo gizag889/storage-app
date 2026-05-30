@@ -8,40 +8,14 @@ import { db } from '../../src/db/client';
 import { items, locations, categories, logs } from '../../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { QuantityCounter } from '../../src/components/QuantityCounter';
-import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { scheduleAlarm, cancelAlarm } from '../../src/utils/notification';
 import { useForm, Controller } from 'react-hook-form';
 import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
 import { Image } from 'expo-image';
 import { pickImage, takePhoto } from '../../src/utils/image';
-
-const formatDate = (isoString: string) => {
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return isoString;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    const hr = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    return `${y}/${m}/${d} ${hr}:${min}`;
-  } catch {
-    return isoString;
-  }
-};
-
-type FormData = {
-  name: string;
-  quantity: number;
-  minQuantity: number;
-  memo: string;
-  locationId: string | null;
-  categoryId: string | null;
-  alarmAt: Date | null;
-  alarmMessage: string;
-  barcode: string | null;
-  imageUri: string | null;
-};
+import { formatDate } from '../../src/utils/date';
+import { ItemFormData as FormData } from '../../src/types';
 
 export default function EditItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -122,33 +96,13 @@ export default function EditItemScreen() {
       
       // 古い通知があればキャンセル
       if (itemData?.notification_id) {
-        try {
-          await Notifications.cancelScheduledNotificationAsync(itemData.notification_id);
-          newNotificationId = null;
-        } catch (e) {
-          console.error('Failed to cancel old notification', e);
-        }
+        await cancelAlarm(itemData.notification_id);
+        newNotificationId = null;
       }
       
       // 新しいアラームが設定されていればスケジュール登録
       if (data.alarmAt) {
-        if (data.alarmAt.getTime() <= Date.now()) {
-          throw new Error('アラーム日時は未来の時間を指定してください');
-        }
-        try {
-          const messageBody = data.alarmMessage.trim() || `${data.name} のアラーム時間です`;
-          newNotificationId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'リマインダー',
-              body: messageBody,
-              sound: true,
-            },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: data.alarmAt },
-          });
-        } catch (e) {
-          console.error('Failed to schedule notification', e);
-          throw new Error('通知の設定に失敗しました');
-        }
+        newNotificationId = await scheduleAlarm(data.alarmAt, data.alarmMessage, data.name);
       }
       
       await db.update(items).set({
@@ -189,11 +143,7 @@ export default function EditItemScreen() {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (itemData?.notification_id) {
-        try {
-          await Notifications.cancelScheduledNotificationAsync(itemData.notification_id);
-        } catch (e) {
-          console.error('Failed to cancel notification on delete', e);
-        }
+        await cancelAlarm(itemData.notification_id);
       }
       await db.delete(items).where(eq(items.id, id));
     },

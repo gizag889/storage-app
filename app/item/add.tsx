@@ -6,30 +6,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '../../src/db/client';
 import { items, locations, categories } from '../../src/db/schema';
 import { QuantityCounter } from '../../src/components/QuantityCounter';
-import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { scheduleAlarm } from '../../src/utils/notification';
 import { useForm, Controller } from 'react-hook-form';
 import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
 import * as Crypto from 'expo-crypto';
 import { Image } from 'expo-image';
 import { pickImage, takePhoto } from '../../src/utils/image';
-
-const formatDateTime = (date: Date) => {
-  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-};
-
-type FormData = {
-  name: string;
-  quantity: number;
-  minQuantity: number;
-  memo: string;
-  locationId: string | null;
-  categoryId: string | null;
-  alarmAt: Date | null;
-  alarmMessage: string;
-  barcode: string | null;
-  imageUri: string | null;
-};
+import { formatDate } from '../../src/utils/date';
+import { ItemFormData as FormData } from '../../src/types';
 
 export default function AddItemScreen() {
   const theme = useTheme();
@@ -85,23 +70,7 @@ export default function AddItemScreen() {
     mutationFn: async (data: FormData) => {
       let notificationId: string | null = null;
       if (data.alarmAt) {
-        if (data.alarmAt.getTime() <= Date.now()) {
-          throw new Error('アラーム日時は未来の時間を指定してください');
-        }
-        try {
-          const messageBody = data.alarmMessage.trim() || `${data.name} のアラーム時間です`;
-          notificationId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'リマインダー',
-              body: messageBody,
-              sound: true,
-            },
-            trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: data.alarmAt },
-          });
-        } catch (e) {
-          console.error('Failed to schedule notification', e);
-          throw new Error('通知の設定に失敗しました');
-        }
+        notificationId = await scheduleAlarm(data.alarmAt, data.alarmMessage, data.name);
       }
 
       await db.insert(items).values({
@@ -296,7 +265,7 @@ export default function AddItemScreen() {
                   onPress={() => { setPickerMode('date'); setShowPicker(true); }}
                   style={{ flex: 1, marginRight: 8 }}
                 >
-                  {value ? formatDateTime(value) : '日時を設定'}
+                  {value ? formatDate(value) : '日時を設定'}
                 </Button>
                 {value && (
                   <IconButton icon="close" onPress={() => onChange(null)} />

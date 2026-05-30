@@ -12,6 +12,7 @@ import { items, locations, categories, logs } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { QuantityCounter } from '../src/components/QuantityCounter';
 import { Image } from 'expo-image';
+import { formatDate } from '../src/utils/date';
 
 type ItemWithRelations = {
   id: string;
@@ -25,21 +26,6 @@ type ItemWithRelations = {
   alarmAt: string | null;
   barcode: string | null;
   imageUri: string | null;
-};
-
-const formatDate = (isoString: string) => {
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return isoString;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    const hr = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    return `${y}/${m}/${d} ${hr}:${min}`;
-  } catch {
-    return isoString;
-  }
 };
 
 export default function HomeScreen() {
