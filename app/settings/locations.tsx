@@ -1,54 +1,20 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { List, FAB, Dialog, Portal, Button, TextInput, IconButton, useTheme } from 'react-native-paper';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '../../src/db/client';
-import { locations } from '../../src/db/schema';
-import { eq } from 'drizzle-orm';
-import * as Crypto from 'expo-crypto';
+import { useLocations, useSaveLocation, useDeleteLocation } from '../../src/hooks/useLocations';
 
 export default function LocationsScreen() {
   const theme = useTheme();
-  const queryClient = useQueryClient();
   const [visible, setVisible] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
 
   // --- Queries ---
-  const { data: locationsData = [], isPending } = useQuery({
-    queryKey: ['locations'],
-    queryFn: async () => await db.select().from(locations),
-  });
+  const { data: locationsData = [], isPending } = useLocations();
 
   // --- Mutations ---
-  const saveMutation = useMutation({
-    mutationFn: async ({ id, name }: { id: string | null; name: string }) => {
-      if (id) {
-        await db.update(locations).set({ name }).where(eq(locations.id, id));
-      } else {
-        await db.insert(locations).values({ id: Crypto.randomUUID(), name });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-      hideDialog();
-    },
-    onError: () => {
-      Alert.alert('エラー', '保存に失敗しました');
-    }
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await db.delete(locations).where(eq(locations.id, id));
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
-    },
-    onError: () => {
-      Alert.alert('エラー', '削除に失敗しました');
-    }
-  });
+  const saveMutation = useSaveLocation(() => hideDialog());
+  const deleteMutation = useDeleteLocation();
 
   const showDialog = (id?: string, currentName?: string) => {
     if (id) {

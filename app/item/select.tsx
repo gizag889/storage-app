@@ -2,85 +2,29 @@ import React from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { List, Text, Chip, useTheme, Snackbar } from 'react-native-paper';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as Crypto from 'expo-crypto';
-import { db } from '../../src/db/client';
-import { items, locations, categories, logs } from '../../src/db/schema';
-import { eq } from 'drizzle-orm';
 import * as Haptics from 'expo-haptics';
-
-type ItemWithRelations = {
-  id: string;
-  name: string;
-  quantity: number;
-  minQuantity: number;
-  locationName: string | null;
-  categoryName: string | null;
-  memo: string | null;
-  barcode: string | null;
-};
+import { useItemsByBarcode, useUpdateItemQuantity } from '../../src/hooks/useItems';
+import { ItemWithRelations } from '../../src/types';
 
 export default function SelectItemScreen() {
   const { barcode, mode } = useLocalSearchParams<{ barcode: string; mode: 'add' | 'remove' }>();
   const theme = useTheme();
-  const queryClient = useQueryClient();
 
-  const { data, isPending, isError } = useQuery({
-    queryKey: ['items', 'barcode', barcode],
-    queryFn: async () => {
-      if (!barcode) return [];
-      
-      let query = db.select({
-        id: items.id,
-        name: items.name,
-        quantity: items.quantity,
-        minQuantity: items.min_quantity,
-        locationName: locations.name,
-        categoryName: categories.name,
-        memo: items.memo,
-        barcode: items.barcode,
-      }).from(items)
-        .leftJoin(locations, eq(items.location_id, locations.id))
-        .leftJoin(categories, eq(items.category_id, categories.id))
-        .where(eq(items.barcode, barcode));
-
-      return await query;
-    },
-  });
-
-  const mutation = useMutation({
-    mutationFn: async ({ item, newQuantity }: { item: ItemWithRelations, newQuantity: number }) => {
-      await db.update(items)
-        .set({ 
-          quantity: newQuantity, 
-          updated_at: new Date().toISOString() 
-        })
-        .where(eq(items.id, item.id));
-
-      if (item.quantity >= item.minQuantity && newQuantity < item.minQuantity) {
-        await db.insert(logs).values({
-          id: Crypto.randomUUID(),
-          item_id: item.id,
-          log_type: 'low_stock',
-          message: `${item.name} の在庫が最低数（${item.minQuantity}）を下回りました。現在数: ${newQuantity}`,
-          created_at: new Date().toISOString(),
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['items'] });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      router.back();
-    },
-    onError: () => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-    }
-  });
+  const { data, isPending, isError } = useItemsByBarcode(barcode || '');
+  const mutation = useUpdateItemQuantity();
 
   const handleSelectItem = (item: ItemWithRelations) => {
     if (!mode) return;
     const newQuantity = mode === 'add' ? item.quantity + 1 : Math.max(0, item.quantity - 1);
-    mutation.mutate({ item, newQuantity });
+    mutation.mutate({ item, newQuantity }, {
+      onSuccess: () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        router.back();
+      },
+      onError: () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      }
+    });
   };
 
   if (isPending) {

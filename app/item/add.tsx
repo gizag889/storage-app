@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { TextInput, Button, Text, Menu, TouchableRipple, IconButton, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '../../src/db/client';
-import { items, locations, categories } from '../../src/db/schema';
+import { useLocations } from '../../src/hooks/useLocations';
+import { useCategories } from '../../src/hooks/useCategories';
+import { useAddItem } from '../../src/hooks/useItems';
 import { QuantityCounter } from '../../src/components/QuantityCounter';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { scheduleAlarm } from '../../src/utils/notification';
 import { useForm, Controller } from 'react-hook-form';
 import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
-import * as Crypto from 'expo-crypto';
+
 import { Image } from 'expo-image';
 import { pickImage, takePhoto } from '../../src/utils/image';
 import { formatDate } from '../../src/utils/date';
@@ -18,7 +18,6 @@ import { ItemFormData as FormData } from '../../src/types';
 
 export default function AddItemScreen() {
   const theme = useTheme();
-  const queryClient = useQueryClient();
 
   const { barcode } = useLocalSearchParams<{ barcode?: string }>();
 
@@ -54,56 +53,26 @@ export default function AddItemScreen() {
   const [catMenuVisible, setCatMenuVisible] = useState(false);
 
   // --- Queries ---
-  const { data: locs = [] } = useQuery({
-    queryKey: ['locations'],
-    queryFn: async () => await db.select().from(locations),
-  });
-
-  const { data: cats = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => await db.select().from(categories),
-  });
+  const { data: locs = [] } = useLocations();
+  const { data: cats = [] } = useCategories();
 
 
   // --- Mutation ---
-  const addMutation = useMutation({
-    mutationFn: async (data: FormData) => {
-      let notificationId: string | null = null;
-      if (data.alarmAt) {
-        notificationId = await scheduleAlarm(data.alarmAt, data.alarmMessage, data.name);
-      }
-
-      await db.insert(items).values({
-        id: Crypto.randomUUID(),
-        name: data.name,
-        quantity: data.quantity,  
-        min_quantity: data.minQuantity,
-        location_id: data.locationId,
-        category_id: data.categoryId,
-        memo: data.memo,
-        barcode: data.barcode,
-        updated_at: new Date().toISOString(),
-        alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
-        alarm_message: data.alarmMessage.trim() || null,
-        notification_id: notificationId,
-        image_uri: data.imageUri,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['items'] });
-      router.back();
-    },
-    onError: (error: Error) => {
-      Alert.alert('エラー', error.message || '追加に失敗しました');
-    }
-  });
+  const addMutation = useAddItem();
 
   const handleSave = (data: FormData) => {
     if (!data.name.trim()) {
       Alert.alert('エラー', 'アイテム名を入力してください');
       return;
     }
-    addMutation.mutate(data);
+    addMutation.mutate(data, {
+      onSuccess: () => {
+        router.back();
+      },
+      onError: (error: Error) => {
+        Alert.alert('エラー', error.message || '追加に失敗しました');
+      }
+    });
   };
 
   const alarmAtValue = watch('alarmAt');

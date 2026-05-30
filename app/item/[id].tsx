@@ -2,14 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Platform, ActivityIndicator } from 'react-native';
 import { TextInput, Button, Text, Menu, TouchableRipple, IconButton, useTheme } from 'react-native-paper';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import * as Crypto from 'expo-crypto';
-import { db } from '../../src/db/client';
-import { items, locations, categories, logs } from '../../src/db/schema';
-import { eq } from 'drizzle-orm';
 import { QuantityCounter } from '../../src/components/QuantityCounter';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { scheduleAlarm, cancelAlarm } from '../../src/utils/notification';
+import { useLocations } from '../../src/hooks/useLocations';
+import { useCategories } from '../../src/hooks/useCategories';
+import { useItem, useUpdateItem, useDeleteItem } from '../../src/hooks/useItems';
 import { useForm, Controller } from 'react-hook-form';
 import { BarcodeScannerModal } from '../../src/components/BarcodeScannerModal';
 import { Image } from 'expo-image';
@@ -20,29 +17,12 @@ import { ItemFormData as FormData } from '../../src/types';
 export default function EditItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
-  const queryClient = useQueryClient();
+
   
   // --- Queries ---
-  const { data: locs = [] } = useQuery({
-    queryKey: ['locations'],
-    queryFn: async () => await db.select().from(locations),
-  });
-
-  const { data: cats = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => await db.select().from(categories),
-  });
-
-  const { data: itemData, isPending, isError } = useQuery({
-    queryKey: ['item', id],
-    queryFn: async () => {
-      const result = await db.select().from(items).where(eq(items.id, id));
-      if (result.length === 0) {
-        throw new Error('Item not found');
-      }
-      return result[0];
-    },
-  });
+  const { data: locs = [] } = useLocations();
+  const { data: cats = [] } = useCategories();
+  const { data: itemData, isPending, isError } = useItem(id || '');
 
   const { control, handleSubmit, watch, setValue } = useForm<FormData>({
     defaultValues: {
@@ -89,76 +69,22 @@ export default function EditItemScreen() {
 
 
   // --- Mutations ---
-
-  const saveMutation = useMutation({
-    mutationFn: async (data: FormData) => {
-      let newNotificationId = itemData?.notification_id || null;
-      
-      // 古い通知があればキャンセル
-      if (itemData?.notification_id) {
-        await cancelAlarm(itemData.notification_id);
-        newNotificationId = null;
-      }
-      
-      // 新しいアラームが設定されていればスケジュール登録
-      if (data.alarmAt) {
-        newNotificationId = await scheduleAlarm(data.alarmAt, data.alarmMessage, data.name);
-      }
-      
-      await db.update(items).set({
-        name: data.name,
-        quantity: data.quantity,
-        min_quantity: data.minQuantity,
-        location_id: data.locationId,
-        category_id: data.categoryId,
-        memo: data.memo,
-        barcode: data.barcode,
-        updated_at: new Date().toISOString(),
-        alarm_at: data.alarmAt ? data.alarmAt.toISOString() : null,
-        alarm_message: data.alarmMessage.trim() || null,
-        notification_id: newNotificationId,
-        image_uri: data.imageUri,
-      }).where(eq(items.id, id));
-
-      if (itemData && itemData.quantity >= itemData.min_quantity && data.quantity < data.minQuantity) {
-        await db.insert(logs).values({
-          id: Crypto.randomUUID(),
-          item_id: id,
-          log_type: 'low_stock',
-          message: `${data.name} の在庫が最低数（${data.minQuantity}）を下回りました。現在数: ${data.quantity}`,
-          created_at: new Date().toISOString(),
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['items'] });
-      queryClient.invalidateQueries({ queryKey: ['item', id] });
-      router.back();
-    },
-    onError: (error: Error) => {
-      Alert.alert('エラー', error.message || '保存に失敗しました');
-    }
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      if (itemData?.notification_id) {
-        await cancelAlarm(itemData.notification_id);
-      }
-      await db.delete(items).where(eq(items.id, id));
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['items'] });
-      router.back();
-    }
-  });
+  const saveMutation = useUpdateItem(id || '');
+  const deleteMutation = useDeleteItem(id || '', itemData?.notification_id);
 
   const handleSave = (data: FormData) => {
     if (!data.name.trim()) {
       Alert.alert('エラー', 'アイテム名を入力してください');
       return;
     }
-    saveMutation.mutate(data);
+    saveMutation.mutate(data, {
+      onSuccess: () => {
+        router.back();
+      },
+      onError: (error: Error) => {
+        Alert.alert('エラー', error.message || '保存に失敗しました');
+      }
+    });
   };
 
   const handleDelete = () => {
@@ -167,7 +93,11 @@ export default function EditItemScreen() {
       { 
         text: '削除', 
         style: 'destructive',
-        onPress: () => deleteMutation.mutate()
+        onPress: () => deleteMutation.mutate(undefined, {
+          onSuccess: () => {
+            router.back();
+          }
+        })
       }
     ]);
   };

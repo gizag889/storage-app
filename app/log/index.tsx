@@ -1,30 +1,13 @@
 import React from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { List, Text, useTheme } from 'react-native-paper';
-import { useQuery } from '@tanstack/react-query';
-import { db } from '../../src/db/client';
-import { logs, items } from '../../src/db/schema';
-import { desc, eq } from 'drizzle-orm';
 import { formatDate } from '../../src/utils/date';
+import { useLogs } from '../../src/hooks/useLogs';
 
 export default function LogScreen() {
   const theme = useTheme();
 
-  const { data, isPending, isError } = useQuery({
-    queryKey: ['logs'],
-    queryFn: async () => {
-      return await db.select({
-        id: logs.id,
-        log_type: logs.log_type,
-        message: logs.message,
-        created_at: logs.created_at,
-        itemName: items.name,
-      })
-      .from(logs)
-      .leftJoin(items, eq(logs.item_id, items.id))
-      .orderBy(desc(logs.created_at));
-    },
-  });
+  const { data, isPending, isError } = useLogs();
 
   if (isPending) {
     return (

@@ -1,54 +1,20 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { List, FAB, Dialog, Portal, Button, TextInput, IconButton, useTheme } from 'react-native-paper';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '../../src/db/client';
-import { categories } from '../../src/db/schema';
-import { eq } from 'drizzle-orm';
-import * as Crypto from 'expo-crypto';
+import { useCategories, useSaveCategory, useDeleteCategory } from '../../src/hooks/useCategories';
 
 export default function CategoriesScreen() {
   const theme = useTheme();
-  const queryClient = useQueryClient();
   const [visible, setVisible] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
 
   // --- Queries ---
-  const { data: categoriesData = [], isPending } = useQuery({
-    queryKey: ['categories'],
-    queryFn: async () => await db.select().from(categories),
-  });
+  const { data: categoriesData = [], isPending } = useCategories();
 
   // --- Mutations ---
-  const saveMutation = useMutation({
-    mutationFn: async ({ id, name }: { id: string | null; name: string }) => {
-      if (id) {
-        await db.update(categories).set({ name }).where(eq(categories.id, id));
-      } else {
-        await db.insert(categories).values({ id: Crypto.randomUUID(), name });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-      hideDialog();
-    },
-    onError: () => {
-      Alert.alert('エラー', '保存に失敗しました');
-    }
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await db.delete(categories).where(eq(categories.id, id));
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
-    },
-    onError: () => {
-      Alert.alert('エラー', '削除に失敗しました');
-    }
-  });
+  const saveMutation = useSaveCategory(() => hideDialog());
+  const deleteMutation = useDeleteCategory();
 
   const showDialog = (id?: string, currentName?: string) => {
     if (id) {
